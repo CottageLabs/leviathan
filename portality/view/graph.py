@@ -39,6 +39,7 @@ blueprint = Blueprint('graph', __name__)
 
 
 @blueprint.route('/', methods=['GET','POST'])
+@util.jsonp
 def graph():
 
     def qvals(qid):
@@ -155,8 +156,6 @@ def graph():
             }
         qs['query']['bool']['must'] = {'term':{'id.exact':params['question']}}
 
-    print json.dumps(qs,indent=4)
-
     # get all the questions that match the query
     res = models.Question.query(q=qs)
     questions = [i['fields'] for i in res.get('hits',{}).get('hits',[])]
@@ -244,7 +243,9 @@ def graph():
             linksindex[str(positions[q['id.exact']]) + "," + str(positions[q['author.exact']])] = 1
         # for every question write a link to all of its tags
         if params['tags']:
-            for tg in q.get('tags.exact',[]):
+            tgs = q.get('tags.exact',[])
+            if not isinstance(tgs,list): tgs = [tgs]
+            for tg in tgs:
                 links.append({
                     'source':positions[q['id.exact']],
                     'target':positions[tg]
