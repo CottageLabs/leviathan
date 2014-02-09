@@ -39,7 +39,6 @@ blueprint = Blueprint('graph', __name__)
 
 
 @blueprint.route('/', methods=['GET','POST'])
-@util.jsonp
 def graph():
 
     def qvals(qid):
