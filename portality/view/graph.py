@@ -74,7 +74,7 @@ def graph():
 
     # get any query parameters
     params = {
-        'tags': request.values.get('tag',False),
+        'tags': request.values.get('tags',False),
         'usernames': request.values.get('usernames',False),
         'answers': request.values.get('answers',False),
         'hierarchy':False, # TODO: implement question hierarchy
@@ -245,10 +245,10 @@ def graph():
             linksindex[str(positions[q['id.exact']]) + "," + str(positions[q['author.exact']])] = 1
         # for every question write a link to all of its tags
         if params['tags']:
-            for tag in q.get('tags.exact',[]):
+            for tg in q.get('tags.exact',[]):
                 links.append({
                     'source':positions[q['id.exact']],
-                    'target':positions[tag]
+                    'target':positions[tg]
                 })
                 linksindex[str(positions[q['id.exact']]) + "," + str(positions[tag])] = 1    
 

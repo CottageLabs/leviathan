@@ -286,7 +286,7 @@ if (!Array.prototype.indexOf) {
 
             var tgt = options.target + '?';
             if ( $('#showtags').is(':checked') ) {
-                tgt += 'tag=yes&';
+                tgt += 'tags=yes&';
             }
             if ( $('#showusernames').is(':checked') ) {
                 tgt += 'usernames=yes&';
