@@ -1,0 +1,60 @@
+{% include 'head.html' %}
+
+<body data-spy="scroll" data-target=".subnav" data-offset="50">
+
+    <div class="navbar navbar-fixed-top" role="navigation" style="background-color:white;">
+          <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="glyphicon glyphicon-tasks"></span>
+              </button>
+              <a class="navbar-brand" href="/" style="color:#333;" alt="read more about this service" title="read more about this service"><b>{{ app.config['SERVICE_NAME'] }}</b></a>
+          </div>
+          <div class="collapse navbar-collapse">
+            <ul class="nav navbar-nav" style="padding-left:10%;">
+              <li><a class="toggler" data-target="question" href="/" alt="get a question" title="get a question"><span class="glyphicon glyphicon-question-sign" style="color:#333;"></span></a></li>
+              <li><a class="toggler" data-target="create" href="/" alt="create a new question" title="create a new question"><span class="glyphicon glyphicon-plus-sign" style="color:#333;"></span></a></li>
+
+              <li><a class="toggler" data-target="searchfeedback" href="/" alt="explore questions" title="explore questions"><span class="glyphicon glyphicon-search" style="color:#333;"></span></a></li>
+              
+            </ul>
+
+            <!--
+            <ul class="nav navbar-nav navbar-right" style="padding-right:20px;">
+              {% if current_user.is_anonymous() %}
+              <li><a href="/account/login" alt="login / signup" title="login / signup"><span class="glyphicon glyphicon-user" style="color:#333;"></span></a></li>
+              {% else %}
+              <li><a href="{{ url_for('account.index') }}{{current_user.id}}" alt="account / settings" title="account / settings"><span class="glyphicon glyphicon-user" style="color:green;"></span></a></li>
+              {% endif %}
+            </ul>
+            -->
+            
+            
+          </div>
+    </div>
+
+
+    <div class="container">
+
+    <div class="alert-messages">
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {%if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{category}} fade in" data-alert="alert">
+          <a class="close" data-dismiss="alert" href="#">&times;</a>
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+    </div>
+
+    </div> <!-- /container -->
+
+    <div class="content" style="padding-top:40px;">
+      {% block content %}{% endblock %}
+    </div> <!-- /content -->
+
+
+</body>
+</html>

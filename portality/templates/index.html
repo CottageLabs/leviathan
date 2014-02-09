@@ -1,0 +1,581 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<script type="text/javascript">
+// first define the bind with delay function from (saves loading it separately) 
+// https://github.com/bgrins/bindWithDelay/blob/master/bindWithDelay.js
+
+(function($) {
+    $.fn.bindWithDelay = function( type, data, fn, timeout, throttle ) {
+        var wait = null;
+        var that = this;
+
+        if ( $.isFunction( data ) ) {
+            throttle = timeout;
+            timeout = fn;
+            fn = data;
+            data = undefined;
+        }
+
+        function cb() {
+            var e = $.extend(true, { }, arguments[0]);
+            var throttler = function() {
+                wait = null;
+                fn.apply(that, [e]);
+            };
+
+            if (!throttle) { clearTimeout(wait); }
+            if (!throttle || !wait) { wait = setTimeout(throttler, timeout); }
+        }
+
+        return this.bind(type, data, cb);
+    };
+})(jQuery);
+
+
+jQuery(document).ready(function() {
+
+    $('#feet').hide();
+    $('.section').hide();
+
+{% if current_user.is_anonymous() %}
+    $('#intro').fadeIn(1500);
+    $('#howto').fadeIn(2500);
+{% else %}
+
+{% endif %}
+
+    qinfo = {
+        "id": 0,
+        "q": "",
+        "v": 1
+    }
+
+    var toggler = function(event) {
+        event.preventDefault();
+        $('.section').not('#' + $(this).attr('data-target')).hide();
+        if ( $(this).attr('data-target') == "info" ) {
+            $('#question').show();
+            // TODO: scroll down to the info section
+        }
+        if ( $(this).attr('data-target') == "question" ) {
+            getquestion();
+        }
+        $( '#' + $(this).attr('data-target') ).toggle();
+        if ( $(this).attr('data-target') == "searchfeedback" ) {
+            $('#search').show();
+            $('#searchbox').focus();
+            qinfo.id = 0;
+            qinfo.q = "";
+            qinfo.v = 1;
+            $('#search').graphview.options.executequery();
+            presearch(); // TODO: this may get too heavy once there are lots of questions
+        }
+    };
+    $('.toggler').bind('click',toggler);
+
+    var closer = function(event) {
+        event.preventDefault();
+        $(this).closest( '.' + $(this).attr('data-dismiss') ).toggle();
+    };
+    $('.close').bind('click',closer);
+
+    var answer = function(event) {
+        event.preventDefault();
+        // TODO: get the answer value and send it to the backend
+        // TODO: consider there may be supporting info / tag changes - 
+        // should those be handled here or separately?
+        var val = 0;
+        if ( $(this).attr('data-value') == "disagree" ) {
+            val = -1;
+        } else if ( $(this).attr('data-value') == "agree" ) {
+            val = 1;
+        } else if ( $(this).attr('data-value') == "partial" ) {
+            val = $('#answer').val();
+            $('#slider').slider("option","value",11);
+            $('#answer')[0].selectedIndex = 10;
+        }
+        var data = {
+            "qid": qinfo.id,
+            "question": qinfo.q,
+            "answer": val
+            // TODO: probably store question version too
+        }
+        $.ajax({
+            type: "POST",
+            url: '/answer/',
+            contentType: "application/json; charset=utf-8",
+            dataType: 'JSON',
+            data: JSON.stringify(data)
+        });
+        $('#question').hide();
+        getquestion();
+    }
+    $('.answer').bind('click',answer);
+
+    getquestion = function(id) {
+        var target = '/question/';
+        if ( id !== undefined ) {
+            target += id;
+        } else {
+            target += '?';
+            if ( tags ) {
+                target += 'tags=' + tags.join(',') + '&';
+            }
+            if ( keywords ) {
+                target += 'keywords=' + keywords.join(',') + '&';            
+            }
+        }
+        $.ajax({
+            type: "GET",
+            url: target,
+            contentType: "application/json; charset=utf-8",
+            dataType: 'JSON',
+            success: function(data) {
+                qinfo.id = data.id;
+                qinfo.q = data.question;
+                $('#questionholder').html('<h1 style="font-family: \'Ledger\', serif;">' + data.question + '</h1>');
+                if ( data.info ) {
+                    $('#infoholder').html(data.info);
+                } else {
+                    $('#infoholder').html('<h3>Sorry, there is no further information available with this question.</h3>');
+                }
+                // TODO: check for related questions
+                // TODO: check if there is also an image, if images become allowed
+                $('#question').fadeIn('slow');
+                $('#search').graphview.options.executequery();
+            }
+        });
+    }
+
+    var morefeet = function(event) {
+        event.preventDefault();
+        $('#foot').hide();
+        $('#feet').show();
+        $("html, body").animate({ scrollTop: $(document).height() }, "slow");
+    }
+    $('#morefeet').bind('click',morefeet);
+
+
+    var showallthesearchoptions = function(event) {
+        event.preventDefault();
+        $('#allthesearchoptions').toggle();
+    }
+    $('#showallthesearchoptions').bind('click',showallthesearchoptions);
+
+    tags = [];
+    keywords = [];
+    var fuzzify = function(querystr) {
+        var rqs = querystr;
+        if ( querystr.indexOf('*') == -1 && querystr.indexOf('~') == -1 && querystr.indexOf(':') == -1 ) {
+            var optparts = querystr.split(' ');
+            pq = "";
+            for ( var oi = 0; oi < optparts.length; oi++ ) {
+                var oip = optparts[oi];
+                if ( oip.length > 0 ) {
+                    oip = '*' + oip + '*';
+                    pq += oip + " ";
+                }
+            };
+            rqs = pq;
+        };
+        rqs == "" ? rqs = "*" : false;
+        return rqs;
+    };
+    var triggerquestion = function(event) {
+        event.preventDefault();
+        $('.section').hide();
+        getquestion( $(this).attr('data-id') );
+    }
+    var removetag = function(event) {
+        event.preventDefault();
+        var t = $(this).html();
+        t = t.replace('<span class="glyphicon glyphicon-remove"></span> ','');
+        var idx = tags.indexOf(t);
+        if ( idx != -1 ) {
+            tags.splice(idx,1);
+        }
+        $(this).remove();
+        presearch();
+    }
+    var removekeyword = function(event) {
+        event.preventDefault();
+        var t = $(this).html();
+        t = t.replace('<span class="glyphicon glyphicon-remove"></span> ','');
+        var idx = keywords.indexOf(t);
+        if ( idx != -1 ) {
+            keywords.splice(idx,1);
+        }
+        $(this).remove();
+        presearch();
+    }
+    var choosetag = function(event) {
+        event.preventDefault();
+        if ( tags.indexOf($(this).html()) == -1 ) {
+            tags.push($(this).html());
+            $(this).appendTo('#chosentags').removeClass('btn-default').removeClass('choosetag').addClass('btn-primary').prepend('<span class="glyphicon glyphicon-remove"></span> ').unbind('click',choosetag).bind('click',removetag);
+            $('#searchbox').val("");
+            presearch();
+        }
+    }
+    var choosekeyword = function(event) {
+        event.preventDefault();
+        if ( keywords.indexOf($(this).html()) == -1 ) {
+            keywords.push($(this).html());
+            $(this).appendTo('#chosentags').removeClass('btn-default').removeClass('choosetag').removeClass('choosekeyword').addClass('btn-info').prepend('<span class="glyphicon glyphicon-remove"></span> ').unbind('click',choosetag).unbind('click',choosekeyword).bind('click',removetag).bind('click',removekeyword);
+            $('#searchbox').val("");
+            presearch();
+        }
+    }
+    var prequeryresults = function(data) {
+        $('#searchingquestions').html("");
+        $('#searchingtags').html("");
+        $('#searchingkeywords').html("");
+        for ( var t=0; t < data.hits.hits.length; t++ ) {
+            $('#searchingquestions').append('<p style="border-bottom:1px solid #ccc;"><a class="loadquestion" data-id="' + data.hits.hits[t]._id + '" href="/">' + data.hits.hits[t]._source.question + '</a></p>');
+        }
+        $('.loadquestion').bind('click',triggerquestion);
+        for ( var t=0; t < data.facets.tags.terms.length; t++ ) {
+            $('#searchingtags').append('<button class="btn btn-default choosetag" style="margin-right:2px;margin-bottom:2px;">' + data.facets.tags.terms[t].term + '</button>');
+        }
+        $('.choosetag').bind('click',choosetag);
+        for ( var t=0; t < data.facets.keywords.terms.length; t++ ) {
+            $('#searchingkeywords').append('<button class="btn btn-default choosekeyword" style="margin-right:2px;margin-bottom:2px;">' + data.facets.keywords.terms[t].term + '</button>');
+        }
+        $('.choosekeyword').bind('click',choosekeyword);
+        $('#search').graphview.options.executequery();
+    }
+    var prequery = {
+        "query": {
+            "bool": {
+                "must":[]
+            }
+        },
+        "from":0,
+        "size":10,
+        "facets":{
+            "tags": {"terms":{"field":"tags.exact","size":1000}},
+            "keywords": {"terms":{"field":"keywords.exact","size":1000}}
+        }
+    }
+    var presearch = function(event) {
+        prequery.query.bool.must = [];
+        prequery.query.bool.must.push({"query_string":{"query": fuzzify($('#searchbox').val()) }});
+        $.each(tags, function(k, v) {
+            prequery.query.bool.must.push({"term":{"tags.exact": v }});
+        });
+        $.each(keywords, function(k, v) {
+            prequery.query.bool.must.push({"term":{"keywords.exact": v }});
+        });
+        $.ajax({
+            type: 'POST',
+            url: '/query/question/',
+            contentType: "application/json; charset=utf-8",
+            dataType: 'JSON',
+            success: prequeryresults,
+            data: JSON.stringify(prequery)
+        })
+    };
+    $('#searchbox').bindWithDelay('input',presearch,500);
+
+    // TODO: move all this directly into the graphview file, make it a fully custom one for leviathan
+    $('#search').graphview();
+
+
+    $('#taginput').select2({
+        //"tags": ['this','that','other'],
+        "tags": function(q) {
+            if ( q.term.indexOf('*') != -1 || q.term.indexOf('~') != -1 || q.term.indexOf(':') != -1 ) {
+                var qs = q.term;
+            } else if ( q.term.indexOf(' ') == -1 ) {
+                var qs = '*' + q.term + '*';
+            } else {
+                var qs = q.term.replace(/ /g,' AND ') + '*';
+            }
+            
+            var tgt = '/stream/question';
+            if ( qs != '**' ) {
+                tgt += '?q=' + qs;
+            }                
+            $.ajax({
+                type: "GET",
+                url: tgt,
+                contentType: "application/json; charset=utf-8",
+                dataType: 'JSON',
+                q: q,
+                success: function(data) {
+                    var qa = this.q;
+                    var results = {'results':[]};
+                    for ( var i=0; i < data.length; i++ ) {
+                        results.results.push({'id':data[i],'text':data[i]});
+                    }
+                    qa.callback(results);
+                }
+            });
+        },
+        "tokenSeparators":[","]
+    });
+
+    $('.select2-choices').css({
+        "-webkit-border-radius":"3px",
+        "-moz-border-radius":"3px",
+        "border-radius":"3px",
+        "border":"1px solid #ccc",
+        "width":"400px"
+    });            
+    $('.select2-input').css({
+        "height":"25px"
+    });            
+
+    $( "#slider" ).slider({
+        min: 1,
+        max: 21,
+        value: 11,
+        slide: function( event, ui ) {
+            $('#answer')[0].selectedIndex = ui.value - 1;
+        }
+    });
+
+    $('.vissetting').bind('change',$('#search').graphview.options.executequery);
+
+});
+</script>
+
+
+
+<div class="container">
+    <div class="panel panel-default section" id="searchfeedback">
+        <div class="panel-heading" style="background-color:white;">
+            <div class="input-group">
+                <input type="text" class="form-control" id="searchbox">
+                <div class="input-group-btn">
+                    <button class="btn btn-default" id="showallthesearchoptions" alt="show/hide search options" title="show/hide search options"><i class="glyphicon glyphicon-cog"></i></button>
+                </div>
+            </div>
+            <div id="chosentags" style="margin-top:5px;"></div>
+        </div>
+        <div class="panel-body" id="allthesearchoptions">
+            <div id="searchingquestions" class="col-md-4" style="border-right:1px solid #ccc;"></div>
+            
+            <div class="col-md-3" id="searchingtags"></div>
+
+            <div class="col-md-3" id="searchingkeywords"></div>
+            
+            <div class="col-md-2" id="searchingoptions" style="border-left:1px solid #ccc;">
+                <p>Network graph:</p>
+                <p><input type="checkbox" class="vissetting" id="showtags" checked="checked"> show tags</p>
+                <p><input type="checkbox" class="vissetting" id="showusernames"> show actors</p>
+                <p><input type="checkbox" class="vissetting" id="showanswers"> show answers</p>
+
+                <p>TODO: show hierarchy in vis</p>
+                
+                <p>paginate question list?</p>
+                <p>random / sort order on question list?</p>
+            
+            </div>    
+
+        </div>
+    </div>
+</div>
+
+
+<div class="container">
+    <div class="row section" id="intro">
+    
+        <div class="col-md-6">
+
+            <div class="jumbotron" style="background-color:transparent;color:#333;">
+                <h1>{{ app.config['SERVICE_NAME'] }}</h1>
+                <h3 style="margin-top:60px;">{{ app.config['SERVICE_TAGLINE'] }}</h3>
+                <button type="button" class="btn btn-default toggler" data-target="question">
+                <span class="glyphicon glyphicon-question-sign"></span> Get started</button>
+                <button type="button" class="btn btn-default toggler" data-target="search">
+                <span class="glyphicon glyphicon-search" style="color:#333;"></span> Explore</button>
+                <!--<button type="button" class="btn btn-default">
+                <span class="glyphicon glyphicon-user" style="color:#333;"></span> Login / sign up</button>-->
+            </div>
+                
+        </div>
+
+        <div class="col-md-6 section" id="howto" style="margin-top:75px;">
+            <div class="well" style="background-color:white;">
+                <button type="button" class="close" data-dismiss="section" aria-hidden="true">&times;</button>
+                <p><span class="glyphicon glyphicon-question-sign"></span>
+                Get started with your first question</p>
+                <p><span class="glyphicon glyphicon-ok-sign" style="color:green;"></span>
+                <span class="glyphicon glyphicon-remove-sign" style="color:red;"></span> 
+                Agree or disagree with one click</p>
+                <p><span class="glyphicon glyphicon-info-sign" style="color:blue;"></span>
+                If you're not sure, get more information and answer more specifically</p>
+                <p><span class="glyphicon glyphicon-search"></span> Search for 
+                questions relevant to you</p>
+                <p><span class="glyphicon glyphicon-plus-sign"></span> 
+                Add your own questions and tag them to create collections</p>
+                <p>Coming soon: <span class="glyphicon glyphicon-user" style="color:#333;"></span>
+                Sign up and login to manage your questions, answers, settings</p>
+            </div>    
+        </div>        
+        
+    </div>
+</div>
+
+
+
+<div class="container">
+    <div class="panel panel-default section" id="question">
+        <div class="panel-heading" style="height:70px;background-color:white;">
+            <div style="float:right;">
+                <a class="toggler" data-target="info" href="/" alt="more info about this question" title="more info about this question"><span class="glyphicon glyphicon-info-sign" style="color:blue;font-size:3em;margin-right:20px;"></span></a>
+                <a class="answer" data-value="disagree" href="/" alt="disagree" title="disagree"><span class="glyphicon glyphicon-remove-sign" style="color:red;font-size:3em;margin-right:20px;"></span></a>
+                <a class="answer" data-value="agree" href="/" alt="agree" title="agree"><span class="glyphicon glyphicon-ok-sign" style="color:green;font-size:3em;margin-right:20px;"></span></a>
+            </div>
+        </div>
+        <div class="panel-body" id="questionholder" style="background-color:#666;color:white;">
+        </div>
+        <div class="panel-footer section" id="info" style="background-color:white;">
+
+            <div id="sliderholder" style="width:500px;height:50px;margin:0px auto 10px auto;">
+            
+                <select name="answer" id="answer" style="display:none;">
+                <option>-1</option>
+                <option>-0.9</option>
+                <option>-0.8</option>
+                <option>-0.7</option>
+                <option>-0.6</option>
+                <option>-0.5</option>
+                <option>-0.4</option>
+                <option>-0.3</option>
+                <option>-0.2</option>
+                <option>-0.1</option>
+                <option selected="selected">0</option>
+                <option>0.1</option>
+                <option>0.2</option>
+                <option>0.3</option>
+                <option>0.4</option>
+                <option>0.5</option>
+                <option>0.6</option>
+                <option>0.7</option>
+                <option>0.8</option>
+                <option>0.9</option>
+                <option>1.0</option>
+                </select>
+
+                <div id="slider" style="width:402px;margin-top:20px;float:left;display:inline;">
+                    <div id="redslider" style="height:10px;width:200px;float:left;display:inline;
+    background: -webkit-linear-gradient(left, red , white);
+    background: -o-linear-gradient(right, red, white);
+    background: -moz-linear-gradient(right, red, white);
+    background: linear-gradient(to right, red , white);">
+                    </div>
+                    <div id="greenslider" style="height:10px;width:200px;float:left;display:inline;
+    background: -webkit-linear-gradient(right, green , white);
+    background: -o-linear-gradient(left, green, white);
+    background: -moz-linear-gradient(left, green, white);
+    background: linear-gradient(to left, green , white);">
+
+                    </div>
+                </div>
+                
+                <div style="float:left;display:inline;margin:10px 0 0 10px;"><button class="btn btn-default answer" data-value="partial">Answer</button></div>
+            </div>
+
+            <div style="margin-top:50px;">
+                <button type="button" class="close" data-dismiss="section" aria-hidden="true">&times;</button>
+
+                <p>TODO: add options for commenting on question, sharing question with social media (plus answer?),
+                submitting a patch to the question, relating the question to another one, submitting a new question 
+                related to this one, and if logged in user is question creator, allow to edit it. Question editing 
+                will then require notification to other users that have submitted answers to it, and to allow them 
+                to re-submit a new answer.</p>
+                <div id="infoholder">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+        
+
+<div class="container">
+    <div class="panel panel-default section" id="create">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <button type="button" class="close" data-dismiss="panel" aria-hidden="true">&times;</button>
+                <span class="glyphicon glyphicon-question-sign" style="color:#333;"></span> Create a new question
+            </h3>
+        </div>
+        <form action="/question/" method="POST">
+        <div class="panel-body">
+            <p>question: <textarea class="form-control" name="question"></textarea></p>
+            <p>tags (comma-separated): <input type="text" name="tags" id="taginput"></p>
+            <p>info: <textarea class="form-control" name="info"></textarea></p>
+            <p>provide supporting web links?</p>
+            <p>Upload an image?</p>
+            <p>Relate it to another question - parent, sibling, child</p>
+            <p>Provide an example of how to write a good question - should be yes/no, etc</p>
+            <p>Explain how tags can be used to group things into projects, deadlines, user stories etc</p>
+        </div>
+        <div class="panel-footer">
+            <p><input type="submit" name="submit" value="submit your new question" class="btn btn-default"></p>
+        </div>
+        </form>
+    </div>
+</div>
+
+
+<div id="search" class="srch" style="height:500px;width:100%;display:none;">
+    <div class="graphview" style="width:100%;height:100%;position:relative;">
+        <div class="graphview_panel" style="position:absolute;top:0;left:0;"></div>
+    </div>
+</div>
+
+
+<div class="container section" id="feet">
+    <div class="well">
+        <button type="button" class="close" data-dismiss="container" aria-hidden="true">&times;</button>     
+               
+        <p style="margin-top:20px;">The purpose of LEVIATHAN is to enable a community to congregate around the concepts that bind them.
+        By doing so, they are able to better represent their core values, and to reconstruct those values over 
+        time, as required by changing circumstances.</p>
+        
+        <p>For example, the introduction of a new community member 
+        may trigger some changes in the way the community works together; by opening up this experience to the 
+        audience - that is, the community itself - subjects may interact with observers to affect a positive 
+        change in the nature of the stage of the performance itself.</p>
+        
+        <p>Or, more straightforwardly, you get to share and answer questions that are relevant to you and your community, 
+        and then see the effects of those answers upon the relationships between you and your peers.</p>
+        
+        <p>This is useful, for example, when improving the workflow involved in a particular company task, or when 
+        developing a new tool for use in a workflow. Where the usual approaches like requirements gathering and user 
+        stories end - at the point where responsibilities hand off to those beyond the defined roles and requirements - 
+        the leviathan provides the opportunity to go a bit further, to see what everyone thinks of particular aspects 
+        of the activity in question, and to enable them to reconstruct their working practices as part of the process 
+        of changing the network in which they perform those practices by the aforementioned improvements or developments.</p> 
+        
+        <p>This service is actually just one instantiation of a leviathan - it is running the leviathan software. It is also 
+        possible, instead of submitting questions to this service, to run your own leviathan for your particular community 
+        or project. And you could call your version something less pretentious than leviathan, if you really want. 
+        The code is all open source, it is available at 
+        <a href="http://github.com/CottageLabs/leviathan">http://github.com/CottageLabs/leviathan</a>.</p>
+
+        <p>The original Leviathan was a book written by Thomas Hobbes. The original cover art (now in the public domain) 
+        from that book can be seen in the background to this service. 
+        <a href="http://en.wikipedia.org/wiki/Leviathan_(book)">Read more about Hobbes and Leviathan</a>.</p>
+        
+        <p>If you want to read more about the research behind this service, have a look at 
+        <a href="http://ifthisistheanswer.com">Studies in Open Scholarship</a>.</p>
+
+        <p>LEVIATHAN is supported by <a href="http://cottagelabs.com">Cottage Labs</a>.
+        If you have a problem or a question, email <a href="mailto:us@cottagelabs.com">us@cottagelabs.com</a>.</p>
+    </div>
+</div>
+
+<footer style="position:fixed; bottom:0; right:10px;">
+
+    <div id="foot" style="float:right;">
+        <p style="font-size:0.9em;"><a href="/" id="morefeet">Read more about this service</a>.</p>
+    </div>
+</footer>
+
+{% endblock %}

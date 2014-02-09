@@ -13,12 +13,13 @@ setup(
         "WTForms==1.0.5",
         "Werkzeug==0.9.4",
         "requests==2.1.0",
+        "topia.termextract"#,
         #"lxml"
     ],
-    url = 'http://cottagelabs.com/',
+    url = 'http://leviathan.cottagelabs.com/',
     author = 'Cottage Labs',
     author_email = 'us@cottagelabs.com',
-    description = 'A web API layer over an ES backend, with various useful views',
+    description = 'The solution to all the worlds problems (apart from where to put apostrophes).',
     license = 'Copyheart',
     classifiers = [
         'Development Status :: 3 - Alpha',
