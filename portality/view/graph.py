@@ -245,10 +245,10 @@ def graph():
         if params['tags']:
             tgs = q.get('tags.exact',[])
             if not isinstance(tgs,list): tgs = [tgs]
-            for tg in tgs:
+            for tag in tgs:
                 links.append({
                     'source':positions[q['id.exact']],
-                    'target':positions[tg]
+                    'target':positions[tag]
                 })
                 linksindex[str(positions[q['id.exact']]) + "," + str(positions[tag])] = 1    
 
