@@ -284,7 +284,6 @@ jQuery(document).ready(function() {
 
 
     $('#taginput').select2({
-        //"tags": ['this','that','other'],
         "tags": function(q) {
             if ( q.term.indexOf('*') != -1 || q.term.indexOf('~') != -1 || q.term.indexOf(':') != -1 ) {
                 var qs = q.term;

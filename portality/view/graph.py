@@ -74,7 +74,7 @@ def graph():
 
     # get any query parameters
     params = {
-        'tags': request.values.get('tags',False),
+        'tags': request.values.get('tag',False),
         'usernames': request.values.get('usernames',False),
         'answers': request.values.get('answers',False),
         'hierarchy':False, # TODO: implement question hierarchy
