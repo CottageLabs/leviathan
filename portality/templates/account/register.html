@@ -26,21 +26,26 @@ jQuery(document).ready(function($) {
 });
 </script>
 
-<div class="hero-unit">
+
+<div class="container">
     <div class="row">
-        <div class="span5">
-            <form id="signupform" method="post" action="{{url_for('account.register')}}">
-                {{ render_field(form.w) }}
-                {{ render_field(form.n) }}
-                {{ render_field(form.s, placeholder="********") }}
-                {{ render_field(form.c, placeholder="********") }}
-                <div class="actions">
-                    <input id="signup" type="submit" value="Signup" class="btn btn-primary" />
-                    <br /><br /><br /><br /><br /><br /><input id="m" type="text" name="m" />
-                </div>
-            </form>
-        </div>
-        <div class="span5">
+    
+        <div class="col-md-6">
+
+            <div class="jumbotron" style="background-color:transparent;color:#333;">
+
+                <form id="signupform" method="post" action="{{url_for('account.register')}}">
+                    {{ render_field(form.w) }}
+                    {{ render_field(form.n) }}
+                    {{ render_field(form.s, placeholder="********") }}
+                    {{ render_field(form.c, placeholder="********") }}
+                    <div class="actions">
+                        <input id="signup" type="submit" value="Signup" class="btn btn-primary" />
+                        <br /><br /><br /><br /><br /><br /><input id="m" type="text" name="m" />
+                    </div>
+                </form>
+
+            </div>
         </div>
     </div>
 </div>

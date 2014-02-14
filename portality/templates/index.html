@@ -44,7 +44,9 @@ jQuery(document).ready(function() {
     $('#intro').fadeIn(1500);
     $('#howto').fadeIn(2500);
 {% else %}
-
+    // TODO: effect here should be different for logged in user
+    $('#intro').fadeIn(1500);
+    $('#howto').fadeIn(2500);
 {% endif %}
 
     qinfo = {
@@ -448,7 +450,7 @@ jQuery(document).ready(function() {
             <div class="col-md-2" id="searchingoptions">
                 <p>Graph settings:</p>
                 <p><input type="checkbox" class="vissetting" id="showtags" checked="checked"> show tags</p>
-                <p><input type="checkbox" class="vissetting" id="showentities"> show entities</p>
+                <p><input type="checkbox" class="vissetting" id="showentities" checked="checked"> show entities</p>
                 <p><input type="checkbox" class="vissetting" id="showanswers"> show answers</p>
 
                 <p>TODO: show titles, show map, timelapse bar chart in vis, other vis options</p>
@@ -472,8 +474,8 @@ jQuery(document).ready(function() {
                 <span class="glyphicon glyphicon-question-sign"></span> Get started</button>
                 <button type="button" class="btn btn-default toggler" data-target="searchfeedback">
                 <span class="glyphicon glyphicon-search" style="color:#333;"></span> Explore</button>
-                <!--<button type="button" class="btn btn-default">
-                <span class="glyphicon glyphicon-user" style="color:#333;"></span> Login / sign up</button>-->
+                <a class="btn btn-default" href="/account/login">
+                <span class="glyphicon glyphicon-user" style="color:#333;"></span> Login / sign up</a>
             </div>
                 
         </div>
@@ -492,8 +494,8 @@ jQuery(document).ready(function() {
                 questions relevant to you</p>
                 <p><span class="glyphicon glyphicon-plus-sign"></span> 
                 Add your own questions and tag them to create collections</p>
-                <p>Coming soon: <span class="glyphicon glyphicon-user" style="color:#333;"></span>
-                Sign up and login to manage your questions, answers, settings</p>
+                <p><span class="glyphicon glyphicon-user" style="color:#333;"></span>
+                Sign up and login to manage not much yet! Functions coming soon...</p>
                 <p>Coming soon: <span class="glyphicon glyphicon-film" style="color:#333;"></span>
                 Watch the HOWTO for examples and advanced features</p>
             </div>    

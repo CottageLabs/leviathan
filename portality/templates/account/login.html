@@ -2,11 +2,14 @@
 
 {% block content %}
 
-<div class="row">
-    <div class="span4">
-        &nbsp;
-    </div>
-    <div class="span5">
+<div class="container">
+    <div class="row">
+    
+        <div class="col-md-6">
+
+            <div class="jumbotron" style="background-color:transparent;color:#333;">
+
+
     {% from "_formhelpers.html" import render_field %}
       <form method="post" action="">
           {{ render_field(form.username, placeholder="your username") }}
@@ -18,7 +21,13 @@
       {% if app.config['PUBLIC_REGISTER'] %}
       <p><br />No account yet? <a href="{{url_for('account.register')}}">Sign up now &raquo;</a></p>
       {% endif %}
+
+            </div>
+        </div>
+        
     </div>
+    
 </div>
+
 {% endblock %}
 
