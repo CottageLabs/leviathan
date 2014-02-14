@@ -138,7 +138,11 @@ def question(identifier=None):
 def metadata(request,data):
     if 'request' not in data:
         try:
-            src = requests.get('http://api.hostip.info/get_json.php?position=true&ip=' + request.remote_addr)
+            try:
+                ra = request.access_route[len(request.access_route)-1]
+            except:
+                ra = request.remote_addr
+            src = requests.get('http://api.hostip.info/get_json.php?position=true&ip=' + ra)
             try:
                 data['request'] = {
                     'country_name': src.json()['country_name'],
