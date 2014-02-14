@@ -105,3 +105,4 @@ def get_gravatar(email, size=None, default=None, border=None):
 
     return image
 
+

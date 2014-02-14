@@ -48,17 +48,17 @@ def graph():
         val = len(ans)
 
         # then get the color as avg of answers
-        c = 0
+        c = 0.0
         for a in ans: 
             c += float(a['answer'])
         if val != 0: c = c/val
-        f = float(c+1) / 2
+        f = (c+1) / 2
         col = '#%02x%02x%02x' % ((1-f)*255, f*255, 0.)
 
         # if value is 0, increase it to 1 so that the dot shows up
         if val == 0: val = 1
 
-        return {'value':val*10,'color':col}
+        return {'value':val,'color':col,'score':c}
 
 
     def fuzzify(val):
@@ -74,12 +74,12 @@ def graph():
 
     # get any query parameters
     params = {
-        'tags': request.values.get('tags',False),
-        'usernames': request.values.get('usernames',False),
+        'facets':request.values.get('facets','').split(','),    
         'answers': request.values.get('answers',False),
-        'hierarchy':False, # TODO: implement question hierarchy
         'selectedtags': request.values.get('selectedtags',False),
+        'oneoftags': request.values.get('oneoftags',False),
         'selectedkeywords': request.values.get('selectedkeywords',False),
+        'selectedgroups': request.values.get('selectedgroups',False),
         'query': request.values.get('query',False),
         'question': request.values.get('question',False)
     }
@@ -90,9 +90,10 @@ def graph():
             'match_all':{
             }
         },
-        'size':1000,
+        'size':10000,
         'fields':[
             'question.exact',
+            'groups.exact',
             'tags.exact',
             'author.exact',
             'id.exact'
@@ -101,22 +102,14 @@ def graph():
         }
     }
 
-    # add to the query depending on parameters
-    if params['tags']:
-        qs['facets']['tags'] = {
-            'terms':{
-                'field':'tags.exact',
-                'size':10000
+    for fct in params['facets']:
+        if len(fct) > 0:
+            qs['facets'][fct] = {
+                'terms':{
+                    'field':fct + '.exact',
+                    'size':10000
+                }
             }
-        }
-
-    if params['usernames']:
-        qs['facets']['usernames'] = {
-            'terms':{
-                'field':'author.exact',
-                'size':10000
-            }
-        }
 
     if params['selectedtags']:
         if 'bool' not in qs['query'].keys():
@@ -128,6 +121,18 @@ def graph():
         for s in params['selectedtags'].split(','):
             qs['query']['bool']['must'].append({'term':{'tags.exact':s}})
 
+    if params['oneoftags']:
+        if 'bool' not in qs['query'].keys():
+            qs['query'] = {
+                'bool':{
+                    'must':[]
+                }
+            }
+        if 'should' not in qs['query']['bool'].keys():
+            qs['query']['bool']['should'] = []
+        for s in params['oneoftags'].split(','):
+            qs['query']['bool']['should'].append({'term':{'tags.exact':s}})
+
     if params['selectedkeywords']:
         if 'bool' not in qs['query'].keys():
             qs['query'] = {
@@ -137,6 +142,16 @@ def graph():
             }
         for s in params['selectedkeywords'].split(','):
             qs['query']['bool']['must'].append({'term':{'keywords.exact':s}})
+
+    if params['selectedgroups']:
+        if 'bool' not in qs['query'].keys():
+            qs['query'] = {
+                'bool':{
+                    'must':[]
+                }
+            }
+        for s in params['selectedgroups'].split(','):
+            qs['query']['bool']['must'].append({'term':{'groups.exact':s}})
 
     if params['query']:
         if 'bool' not in qs['query'].keys():
@@ -159,16 +174,20 @@ def graph():
     # get all the questions that match the query
     res = models.Question.query(q=qs)
     questions = [i['fields'] for i in res.get('hits',{}).get('hits',[])]
-    if params['tags']:
+    if 'tags' in params['facets']:
         tags = [i for i in res.get('facets',{}).get('tags',{}).get('terms',[])]
     else:
         tags = []
-    if params['usernames']:
+    if 'usernames' in params['facets']:
         usernames = [i for i in res.get('facets',{}).get('usernames',{}).get('terms',[])]
     else:
         usernames = []
-    
-    
+    if 'groups' in params['facets']:
+        groups = [i for i in res.get('facets',{}).get('groups',{}).get('terms',[])]
+    else:
+        groups = []
+        
+
     # get all the answers to those questions
     aq = {
         'query':{
@@ -193,7 +212,6 @@ def graph():
     }
     ares = models.Answer.query(q=aq)
     answers = [i['fields'] for i in ares.get('hits',{}).get('hits',[])]
-    
 
 
     # put everything into the nodes and work out the links
@@ -208,8 +226,10 @@ def graph():
             'type':'tag',
             'id':t['term'],
             'className':t['term'],
+            'label': '#' + t['term'],
+            'hoverlabel': t['term'] + " (" + str(t['count']) + ')',
             'value':t['count'],
-            'color':'#ccc'
+            'color':'white'
         })
         positions[t['term']] = len(nodes) - 1
 
@@ -219,30 +239,49 @@ def graph():
             'type':'username',
             'id':u['term'],
             'className':u['term'],
+            'label': '@' + u['term'],
+            'hoverlabel': u['term'] + " (" + str(u['count']) + ')',
             'value':u['count'],
             'color':'orange'
         })
         positions[u['term']] = len(nodes) - 1
 
+    # put all groups into the nodes
+    for g in groups:
+        nodes.append({
+            'type':'group',
+            'id':g['term'],
+            'className':g['term'],
+            'label': '@' + g['term'],
+            'hoverlabel': g['term'] + " (" + str(g['count']) + ')',
+            'value':g['count'],
+            'color':'#ffeeaa'
+        })
+        positions[g['term']] = len(nodes) - 1
+
     for q in questions:
-        # add every question to the nodes    
+        # add every question to the nodes
+        qv = qvals(q['id.exact'])
         nodes.append({
             'type':'question',
             'id':q['id.exact'],
             'className':q.get('question.exact',""),
-            'value':qvals(q['id.exact'])['value'],
-            'color':qvals(q['id.exact'])['color']
+            'label': q.get('shortquestion.exact',q.get('question.exact',"")),
+            'hoverlabel': q.get('question.exact',"") + " - averaged " + str(qv['score']) + " over " + str(qv['value']) + " votes",
+            'score':qv['score'],
+            'value':qv['value'],
+            'color':qv['color']
         })
         positions[q['id.exact']] = len(nodes) - 1
         # for every question write a link to the author
-        if params['usernames']:
+        if 'usernames' in params['facets']:
             links.append({
                 'source':positions[q['id.exact']],
                 'target':positions[q['author.exact']]
             })
             linksindex[str(positions[q['id.exact']]) + "," + str(positions[q['author.exact']])] = 1
         # for every question write a link to all of its tags
-        if params['tags']:
+        if 'tags' in params['facets']:
             tgs = q.get('tags.exact',[])
             if not isinstance(tgs,list): tgs = [tgs]
             for tag in tgs:
@@ -251,9 +290,20 @@ def graph():
                     'target':positions[tag]
                 })
                 linksindex[str(positions[q['id.exact']]) + "," + str(positions[tag])] = 1    
+        # for every question write a link to all of its tags
+        if 'groups' in params['facets']:
+            gps = q.get('groups.exact',[])
+            if not isinstance(gps,list): gps = [gps]
+            for gp in gps:
+                links.append({
+                    'source':positions[q['id.exact']],
+                    'target':positions[gp]
+                })
+                linksindex[str(positions[q['id.exact']]) + "," + str(positions[gp])] = 1
 
         
     if params['answers']:
+
         for a in answers:
             # add every answer to the nodes
             if a['answer'] > 0:
@@ -265,6 +315,8 @@ def graph():
             nodes.append({
                 'type':'answer',
                 'id':a['id.exact'],
+                'label': "",
+                'hoverlabel': a['author.exact'] + " voted " + str(a['answer']),
                 'value':1,
                 'color':col
             })
@@ -275,13 +327,13 @@ def graph():
                 'target':positions[a['qid.exact']]
             })
             linksindex[str(positions[a['id.exact']]) + "," + str(positions[a['qid.exact']])] = 1
-            # for every answer write a link to the author
-            if params['usernames']:
+            # TODO: put links to faceted things that are relevant to answers, like groups or usernames
+            '''if params['usernames']:
                 links.append({
                     'source':positions[a['id.exact']],
                     'target':positions[a['author.exact']]
                 })
-                linksindex[str(positions[a['id.exact']]) + "," + str(positions[a['author.exact']])] = 1
+                linksindex[str(positions[a['id.exact']]) + "," + str(positions[a['author.exact']])] = 1'''
 
 
     # send back the answer

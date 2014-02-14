@@ -97,19 +97,6 @@ if (!Array.prototype.indexOf) {
         // ===============================================
 
 
-        var label = function(d,t) {
-            // calculate a label
-            var label = '';
-            if ( d.className ) {
-                label += d.className;
-            }
-            if ( t == "text" && d.type != "question" && d.type != "tag" ) {
-                return "";
-            } else {
-                return label;
-            }
-        }
-    
         var force = function() {
 
             /*// a function to check the dict of linked things
@@ -169,7 +156,7 @@ if (!Array.prototype.indexOf) {
 
             // start the force layout
             var force = d3.layout.force()
-                .charge(-160)
+                .charge(-560)
                 .linkDistance(100)
                 .nodes(options.response.nodes)
                 .links(options.response.links)
@@ -182,7 +169,7 @@ if (!Array.prototype.indexOf) {
                 .data(options.response.links)
                 .enter().append("svg:line")
                 .attr("class", "link")
-                .attr("stroke", "#aaa")
+                .attr("stroke", "#999")
                 .attr("stroke-opacity", 0.8)
                 .style("stroke-width", function(d) { return Math.sqrt(d.value); })
                 .attr("x1", function(d) { return d.source.x; })
@@ -199,19 +186,20 @@ if (!Array.prototype.indexOf) {
                 .data(options.response.nodes)
                 .enter().append("svg:circle")
                 .attr("class", "node")
-                .attr("name", function(d) { return label(d); })
+                .attr("name", function(d) { return d.label; })
                 .attr("cx", function(d) { return d.x; })
                 .attr("cy", function(d) { return d.y; })
                 .attr("r", function(d) { return cr(d.value); })
                 .style("fill", function(d) { return d.color; })
+                .style("stroke", "#999")
                 .call(force.drag)
                 .on("click",function(d) { getquestion(d.id); })
                 //.on("mouseover", highlight(.1))
                 //.on("mouseout", highlight(1))
 
-            // put a hover a label on
+            // put a hover label on
             node.append("svg:title")
-                .text(function(d) { return label(d,"hover"); });
+                .text(function(d) { return d.hoverlabel; });
 
             // make the cursor a click pointer whenever hovering a node
             $('.node').css({"cursor":"pointer"});
@@ -223,7 +211,7 @@ if (!Array.prototype.indexOf) {
                 .enter().append("text")
                 .attr("class", "svglabel")
                 .attr("fill", "#666")
-                .text(function(d) {  return label(d,"text"); });
+                .text(function(d) {  return d.label; });
 
             // define the changes that happen when the diagram ticks over
             force.on("tick", function() {
@@ -284,18 +272,16 @@ if (!Array.prototype.indexOf) {
             // show the loading image
             $('.graphview_loading', obj).show();
 
-            var tgt = options.target + '?';
+            var tgt = options.target + '?facets=';
             if ( $('#showtags').is(':checked') ) {
-                tgt += 'tags=yes&';
+                tgt += 'tags,';
             }
-            if ( $('#showusernames').is(':checked') ) {
-                tgt += 'usernames=yes&';
+            if ( $('#showentities').is(':checked') ) {
+                tgt += 'groups,';
             }
+            tgt = tgt.substring(0, tgt.length-1) + '&';
             if ( $('#showanswers').is(':checked') ) {
                 tgt += 'answers=yes&';
-            }
-            if ( $('#showhierarchy').is(':checked') ) {
-                tgt += 'hierarchy=yes&';
             }
             if ( tags.length ) {
                 tgt += 'selectedtags=';
@@ -323,11 +309,24 @@ if (!Array.prototype.indexOf) {
                 });
                 tgt += '&'
             }
+            if ( groups.length ) {
+                tgt += 'selectedgroups=';
+                var fst = true;
+                $.each(groups, function(k, v) {
+                    if ( fst ) {
+                        fst = false;
+                    } else {
+                        tgt += ',';
+                    }
+                    tgt += v;
+                });
+                tgt += '&'
+            }
             if ( $('#searchbox').val() ) {
                 tgt += 'query=' + $('#searchbox').val() + '&';
             }
-            if ( qinfo.id ) {
-                tgt += 'question=' + qinfo.id + '&';
+            if ( qinfo.id && !tags.length ) {
+                tgt += 'oneoftags=' + qinfo.tags.join(',') + '&';
             }
 
             // set the ajax options then execute

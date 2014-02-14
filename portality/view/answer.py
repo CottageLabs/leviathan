@@ -46,7 +46,7 @@ def answer(identifier=None):
             for k, v in request.values.items():
                 if k not in ['submit']:
                     f.data[k] = v
-
+        
         f.save()
 
         return ""

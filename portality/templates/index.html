@@ -37,6 +37,7 @@
 jQuery(document).ready(function() {
 
     $('#feet').hide();
+    $('#searchfeedback').hide();
     $('.section').hide();
 
 {% if current_user.is_anonymous() %}
@@ -54,23 +55,36 @@ jQuery(document).ready(function() {
 
     var toggler = function(event) {
         event.preventDefault();
-        $('.section').not('#' + $(this).attr('data-target')).hide();
+        $('.alert').remove();
         if ( $(this).attr('data-target') == "info" ) {
-            $('#question').show();
-            // TODO: scroll down to the info section
-        }
-        if ( $(this).attr('data-target') == "question" ) {
+            $( '#info' ).toggle();
+        } else if ( $(this).attr('data-target') == "question" ) {
             getquestion();
-        }
-        $( '#' + $(this).attr('data-target') ).toggle();
-        if ( $(this).attr('data-target') == "searchfeedback" ) {
-            $('#search').show();
+            $('.section').not('#' + $(this).attr('data-target')).hide();
+            $( '#' + $(this).attr('data-target') ).toggle();
+        } else if ( $(this).attr('data-target') == "searchfeedback" ) {
+            if ( $('#searchfeedback').is(':visible') ) {
+                if ( $('#allthesearchoptions').is(':visible') ) {
+                    $('#searchfeedback').hide();
+                    $('#search').hide();
+                } else {
+                    $('#allthesearchoptions').show('medium');
+                }
+            } else {
+                $('.section').not('#' + $(this).attr('data-target')).hide();
+                $('#search').show();
+                $('#searchfeedback').show();
+                $('#allthesearchoptions').show('medium');
+            }
             $('#searchbox').focus();
             qinfo.id = 0;
             qinfo.q = "";
             qinfo.v = 1;
             $('#search').graphview.options.executequery();
             presearch(); // TODO: this may get too heavy once there are lots of questions
+        } else {
+            $('.section').not('#' + $(this).attr('data-target')).hide();
+            $( '#' + $(this).attr('data-target') ).toggle();
         }
     };
     $('.toggler').bind('click',toggler);
@@ -83,7 +97,6 @@ jQuery(document).ready(function() {
 
     var answer = function(event) {
         event.preventDefault();
-        // TODO: get the answer value and send it to the backend
         // TODO: consider there may be supporting info / tag changes - 
         // should those be handled here or separately?
         var val = 0;
@@ -135,14 +148,15 @@ jQuery(document).ready(function() {
             success: function(data) {
                 qinfo.id = data.id;
                 qinfo.q = data.question;
+                qinfo.tags = data.tags;
                 $('#questionholder').html('<h1 style="font-family: \'Ledger\', serif;">' + data.question + '</h1>');
                 if ( data.info ) {
                     $('#infoholder').html(data.info);
                 } else {
                     $('#infoholder').html('<h3>Sorry, there is no further information available with this question.</h3>');
                 }
-                // TODO: check for related questions
                 // TODO: check if there is also an image, if images become allowed
+                $('#allthesearchoptions').hide();
                 $('#question').fadeIn('slow');
                 $('#search').graphview.options.executequery();
             }
@@ -160,12 +174,13 @@ jQuery(document).ready(function() {
 
     var showallthesearchoptions = function(event) {
         event.preventDefault();
-        $('#allthesearchoptions').toggle();
+        $('#allthesearchoptions').toggle('medium');
     }
     $('#showallthesearchoptions').bind('click',showallthesearchoptions);
 
     tags = [];
     keywords = [];
+    groups = [];
     var fuzzify = function(querystr) {
         var rqs = querystr;
         if ( querystr.indexOf('*') == -1 && querystr.indexOf('~') == -1 && querystr.indexOf(':') == -1 ) {
@@ -210,11 +225,22 @@ jQuery(document).ready(function() {
         $(this).remove();
         presearch();
     }
+    var removegroup = function(event) {
+        event.preventDefault();
+        var t = $(this).html();
+        t = t.replace('<span class="glyphicon glyphicon-remove"></span> ','');
+        var idx = groups.indexOf(t);
+        if ( idx != -1 ) {
+            groups.splice(idx,1);
+        }
+        $(this).remove();
+        presearch();
+    }
     var choosetag = function(event) {
         event.preventDefault();
         if ( tags.indexOf($(this).html()) == -1 ) {
             tags.push($(this).html());
-            $(this).appendTo('#chosentags').removeClass('btn-default').removeClass('choosetag').addClass('btn-primary').prepend('<span class="glyphicon glyphicon-remove"></span> ').unbind('click',choosetag).bind('click',removetag);
+            $(this).appendTo('#chosentags').removeClass('choosetag').prepend('<span class="glyphicon glyphicon-remove"></span> ').unbind('click',choosetag).bind('click',removetag);
             $('#searchbox').val("");
             presearch();
         }
@@ -223,15 +249,26 @@ jQuery(document).ready(function() {
         event.preventDefault();
         if ( keywords.indexOf($(this).html()) == -1 ) {
             keywords.push($(this).html());
-            $(this).appendTo('#chosentags').removeClass('btn-default').removeClass('choosetag').removeClass('choosekeyword').addClass('btn-info').prepend('<span class="glyphicon glyphicon-remove"></span> ').unbind('click',choosetag).unbind('click',choosekeyword).bind('click',removetag).bind('click',removekeyword);
+            $(this).appendTo('#chosentags').removeClass('choosetag').prepend('<span class="glyphicon glyphicon-remove"></span> ').unbind('click',choosekeyword).bind('click',removekeyword);
+            $('#searchbox').val("");
+            presearch();
+        }
+    }
+    var choosegroup = function(event) {
+        event.preventDefault();
+        if ( groups.indexOf($(this).html()) == -1 ) {
+            groups.push($(this).html());
+            $(this).appendTo('#chosentags').removeClass('choosegroup').prepend('<span class="glyphicon glyphicon-remove"></span> ').unbind('click',choosegroup).bind('click',removegroup);
             $('#searchbox').val("");
             presearch();
         }
     }
     var prequeryresults = function(data) {
+        $('#question').hide();
         $('#searchingquestions').html("");
         $('#searchingtags').html("");
         $('#searchingkeywords').html("");
+        $('#searchinggroups').html("");
         for ( var t=0; t < data.hits.hits.length; t++ ) {
             $('#searchingquestions').append('<p style="border-bottom:1px solid #ccc;"><a class="loadquestion" data-id="' + data.hits.hits[t]._id + '" href="/">' + data.hits.hits[t]._source.question + '</a></p>');
         }
@@ -241,9 +278,13 @@ jQuery(document).ready(function() {
         }
         $('.choosetag').bind('click',choosetag);
         for ( var t=0; t < data.facets.keywords.terms.length; t++ ) {
-            $('#searchingkeywords').append('<button class="btn btn-default choosekeyword" style="margin-right:2px;margin-bottom:2px;">' + data.facets.keywords.terms[t].term + '</button>');
+            $('#searchingkeywords').append('<button class="btn btn-default choosekeyword" style="margin-right:2px;margin-bottom:2px;background-color:#eee;">' + data.facets.keywords.terms[t].term + '</button>');
         }
         $('.choosekeyword').bind('click',choosekeyword);
+        for ( var t=0; t < data.facets.groups.terms.length; t++ ) {
+            $('#searchinggroups').append('<button class="btn btn-default choosegroup" style="margin-right:2px;margin-bottom:2px;background-color:#ffeedd;">' + data.facets.groups.terms[t].term + '</button>');
+        }
+        $('.choosegroup').bind('click',choosegroup);
         $('#search').graphview.options.executequery();
     }
     var prequery = {
@@ -256,7 +297,8 @@ jQuery(document).ready(function() {
         "size":10,
         "facets":{
             "tags": {"terms":{"field":"tags.exact","size":1000}},
-            "keywords": {"terms":{"field":"keywords.exact","size":1000}}
+            "keywords": {"terms":{"field":"keywords.exact","size":1000}},
+            "groups": {"terms":{"field":"groups.exact","size":1000}}
         }
     }
     var presearch = function(event) {
@@ -267,6 +309,9 @@ jQuery(document).ready(function() {
         });
         $.each(keywords, function(k, v) {
             prequery.query.bool.must.push({"term":{"keywords.exact": v }});
+        });
+        $.each(groups, function(k, v) {
+            prequery.query.bool.must.push({"term":{"groups.exact": v }});
         });
         $.ajax({
             type: 'POST',
@@ -324,7 +369,7 @@ jQuery(document).ready(function() {
         "width":"400px"
     });            
     $('.select2-input').css({
-        "height":"25px"
+        "height":"30px"
     });            
 
     $( "#slider" ).slider({
@@ -338,13 +383,50 @@ jQuery(document).ready(function() {
 
     $('.vissetting').bind('change',$('#search').graphview.options.executequery);
 
+    // check the url string for things to process
+    var readurl = function() {
+        var loc = window.location.href;
+        loc = loc.replace('http://','');
+        loc = loc.replace('https://','');
+        loc = loc.split('/')[1];
+        var hashtags = [];
+        var username = false;
+        var dosearch = false;
+        if ( loc[0] == '#' ) {
+            if ( loc.indexOf('@') != -1 ) {
+                var parts = loc.split('@');
+                hashtags = parts[0].replace('#','').split('#');
+                username = parts[1];
+            } else {
+                hashtags = loc.replace('#','').split('#');
+            }
+            dosearch = true;
+        }
+        if ( hashtags ) {
+            for ( var i=0; i<hashtags.length; i++ ) {
+                tags.push(hashtags[i]);
+                $('#chosentags').append('<button class="btn btn-default tagurl" style="margin-right:2px;margin-bottom:2px;"><span class="glyphicon glyphicon-remove"></span> ' + hashtags[i] + '</button>');
+            }
+            $('.tagurl').bind('click',removetag);
+        }
+        if ( username ) {
+            groups.push(username);
+            $('#chosentags').append('<button class="btn btn-default groupurl" style="margin-right:2px;margin-bottom:2px;background-color:#ffeedd;"><span class="glyphicon glyphicon-remove"></span> ' + username + '</button>');
+            $('.groupurl').bind('click',removegroup);
+        }
+        if ( dosearch ) {
+            $('#searchfeedbackbutton').trigger('click');
+        }
+    }
+    readurl();
+
 });
 </script>
 
 
 
 <div class="container">
-    <div class="panel panel-default section" id="searchfeedback">
+    <div class="panel panel-default" id="searchfeedback">
         <div class="panel-heading" style="background-color:white;">
             <div class="input-group">
                 <input type="text" class="form-control" id="searchbox">
@@ -354,24 +436,23 @@ jQuery(document).ready(function() {
             </div>
             <div id="chosentags" style="margin-top:5px;"></div>
         </div>
-        <div class="panel-body" id="allthesearchoptions">
+        <div class="panel-body section" id="allthesearchoptions">
             <div id="searchingquestions" class="col-md-4" style="border-right:1px solid #ccc;"></div>
             
-            <div class="col-md-3" id="searchingtags" style="border-right:1px solid #ccc;"></div>
+            <div class="col-md-2" id="searchingtags" style="border-right:1px solid #ccc;"></div>
 
-            <div class="col-md-3" id="searchingkeywords"></div>
+            <div class="col-md-2" id="searchingkeywords" style="border-right:1px solid #ccc;"></div>
+
+            <div class="col-md-2" id="searchinggroups" style="border-right:1px solid #ccc;"></div>
             
-            <div class="col-md-2" id="searchingoptions" style="border-left:1px solid #ccc;">
-                <p>Network graph:</p>
+            <div class="col-md-2" id="searchingoptions">
+                <p>Graph settings:</p>
                 <p><input type="checkbox" class="vissetting" id="showtags" checked="checked"> show tags</p>
-                <p><input type="checkbox" class="vissetting" id="showusernames"> show actors</p>
+                <p><input type="checkbox" class="vissetting" id="showentities"> show entities</p>
                 <p><input type="checkbox" class="vissetting" id="showanswers"> show answers</p>
 
-                <p>TODO: show hierarchy in vis</p>
-                
-                <p>paginate question list?</p>
-                <p>random / sort order on question list?</p>
-            
+                <p>TODO: show titles, show map, timelapse bar chart in vis, other vis options</p>
+                            
             </div>    
 
         </div>
@@ -389,7 +470,7 @@ jQuery(document).ready(function() {
                 <h3 style="margin-top:60px;">{{ app.config['SERVICE_TAGLINE'] }}</h3>
                 <button type="button" class="btn btn-default toggler" data-target="question">
                 <span class="glyphicon glyphicon-question-sign"></span> Get started</button>
-                <button type="button" class="btn btn-default toggler" data-target="search">
+                <button type="button" class="btn btn-default toggler" data-target="searchfeedback">
                 <span class="glyphicon glyphicon-search" style="color:#333;"></span> Explore</button>
                 <!--<button type="button" class="btn btn-default">
                 <span class="glyphicon glyphicon-user" style="color:#333;"></span> Login / sign up</button>-->
@@ -397,7 +478,7 @@ jQuery(document).ready(function() {
                 
         </div>
 
-        <div class="col-md-6 section" id="howto" style="margin-top:75px;">
+        <div class="col-md-6 section" id="howto" style="margin-top:60px;">
             <div class="well" style="background-color:white;">
                 <button type="button" class="close" data-dismiss="section" aria-hidden="true">&times;</button>
                 <p><span class="glyphicon glyphicon-question-sign"></span>
@@ -413,6 +494,8 @@ jQuery(document).ready(function() {
                 Add your own questions and tag them to create collections</p>
                 <p>Coming soon: <span class="glyphicon glyphicon-user" style="color:#333;"></span>
                 Sign up and login to manage your questions, answers, settings</p>
+                <p>Coming soon: <span class="glyphicon glyphicon-film" style="color:#333;"></span>
+                Watch the HOWTO for examples and advanced features</p>
             </div>    
         </div>        
         
@@ -505,14 +588,30 @@ jQuery(document).ready(function() {
         </div>
         <form action="/question/" method="POST">
         <div class="panel-body">
-            <p>question: <textarea class="form-control" name="question"></textarea></p>
-            <p>tags (comma-separated): <input type="text" name="tags" id="taginput"></p>
-            <p>info: <textarea class="form-control" name="info"></textarea></p>
-            <p>provide supporting web links?</p>
-            <p>Upload an image?</p>
-            <p>Relate it to another question - parent, sibling, child</p>
+            <p>Question: <textarea class="form-control" name="question"></textarea></p>
+            <table>
+                <tr>
+                    <td>
+                        <p>Tags: </p>
+                    </td>
+                    <td>
+                        <input type="text" name="tags" id="taginput">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <p>Web link: </p>
+                    </td>
+                    <td>
+                        <input style="display:inline;width:400px;" class="form-control" type="text" name="link">
+                    </td>
+                </tr>
+            </table>
+            <p>Further information: <textarea class="form-control" name="info"></textarea></p>
             <p>Provide an example of how to write a good question - should be yes/no, etc</p>
-            <p>Explain how tags can be used to group things into projects, deadlines, user stories etc</p>
+            <p>Explain how tags can be used to group things into projects, deadlines, user stories etc, 
+            how combination of #tag@username can be used to make a unique collection (just don't use same 
+            tags on other questions of yours).</p>
         </div>
         <div class="panel-footer">
             <p><input type="submit" name="submit" value="submit your new question" class="btn btn-default"></p>

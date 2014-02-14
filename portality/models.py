@@ -65,11 +65,11 @@ class Account(DomainObject, UserMixin):
     def answers(self):
         # TODO: return all the answers this user submitted
         return []
-
+    
     
 class Question(DomainObject):
     __type__ = 'question'
-    
+
     @property
     def answers(self):
         # TODO: get all answers about this question and return them
