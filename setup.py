@@ -8,7 +8,7 @@ setup(
         "Flask==0.10.1",
         "Flask-Login==0.2.7",
         "Flask-WTF==0.9.3",
-        "GitPython==0.1.7",
+        #"GitPython==0.1.7",
         "Markdown==2.3.1",
         "WTForms==1.0.5",
         "Werkzeug==0.9.4",
