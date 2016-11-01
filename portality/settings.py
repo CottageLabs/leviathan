@@ -19,6 +19,7 @@ PORT = 5019
 ELASTIC_SEARCH_HOST = "http://127.0.0.1:9200" # remember the http:// or https://
 ELASTIC_SEARCH_DB = "leviathan"
 INITIALISE_INDEX = True # whether or not to try creating the index and required index types on startup
+INDEX_VERSION_GTONE = True
 
 # list of superuser account names
 SUPER_USER = ["test"]
